@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/JohannesKaufmann/html-to-markdown/v2"
 )
@@ -14,26 +17,52 @@ type GraphQLRequest struct {
 	Query string `json:"query"`
 }
 
+type CodeSnippet struct {
+	Code string `json:"code"` // Language (e.g., "golang", "c")
+	Lang string `json:"lang"` // Starter code
+}
+
 type GraphQLResponse struct {
 	Data struct {
 		Question struct {
-			QuestionTitle string `json:"questionTitle"`
-			Content       string `json:"content"` // HTML format
-			Difficulty    string `json:"difficulty"`
+			QuestionFrontendID  string        `json:"questionFrontendId"`
+			QuestionTitle       string        `json:"questionTitle"`
+			Content             string        `json:"content"` // HTML format
+			Difficulty          string        `json:"difficulty"`
+			ExampleTestcaseList []string      `json:"exampleTestcaseList"` // Raw sample input
+			CodeSnippets        []CodeSnippet `json:"codeSnippets"`
 		} `json:"question"`
 	} `json:"data"`
 }
 
 func main() {
-	problemSlug := "substrings-of-size-three-with-distinct-characters" // Replace with desired problem slug
+	if len(os.Args) < 2 {
+		fmt.Println("Please provide input.")
+		return
+	}
+
+	// os.Args[0] is the program name; os.Args[1:] are the arguments
+	var questionLink string
+	for _, arg := range os.Args[1:] {
+		questionLink = arg
+	}
+
+	problemSlug := strings.Split(questionLink, "/")[4]
+
 	url := "https://leetcode.com/graphql"
 
 	query := fmt.Sprintf(`
 	{
 		question(titleSlug: "%s") {
+			questionFrontendId
 			questionTitle
 			content
 			difficulty
+			exampleTestcaseList
+			codeSnippets {
+				lang
+				code
+		}
 		}
 	}`, problemSlug)
 
@@ -45,7 +74,6 @@ func main() {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-
 	// Send the HTTP request
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -74,5 +102,53 @@ func main() {
 	question := response.Data.Question
 	fmt.Println("Title:", question.QuestionTitle)
 	fmt.Println("Difficulty:", question.Difficulty)
+	fmt.Println("ID:", question.QuestionFrontendID)
 	fmt.Println("\nDescription:\n", markdownContent)
+	fmt.Println("\nSample Input (Raw):\n", question.ExampleTestcaseList[0])
+
+	found := false
+	var code CodeSnippet
+	for _, code = range question.CodeSnippets {
+		if code.Lang == "Go" {
+			fmt.Println("\nCode Snippet:\n")
+			fmt.Println(code.Code)
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		fmt.Println("code snippet not found for this problem.")
+	}
+
+	if err = os.MkdirAll(question.QuestionFrontendID, os.ModePerm); err != nil {
+		panic(err)
+	}
+
+	solutionFilePath := fmt.Sprintf(question.QuestionFrontendID + "/solution.c")
+	if err = os.WriteFile(solutionFilePath, []byte(code.Code), os.ModePerm); err != nil {
+		panic(err)
+	}
+
+	// Define the terminal application and arguments
+	// Example: Launch `vim` or `bash` as a subprocess
+	cmd := exec.Command("nvim", solutionFilePath) // Replace "bash" with your desired terminal application
+
+	// Set the standard input, output, and error to match the parent process
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	fmt.Println("Launching terminal application...")
+
+	// Start the terminal application
+	err = cmd.Run() // Run blocks until the subprocess exits
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+
+	// Resume execution after terminal application exits
+	fmt.Println("Link the solution to the Repo Readme?[y/N]")
+
 }
