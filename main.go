@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -35,7 +36,13 @@ type GraphQLResponse struct {
 	} `json:"data"`
 }
 
+func RemoveInvisibleCharacters(input string) string {
+	input = strings.ReplaceAll(input, "\u200B", "") // Zero-width space
+	return input
+}
+
 func main() {
+	author := "Neo Orez"
 	if len(os.Args) < 2 {
 		fmt.Println("Please provide input.")
 		return
@@ -94,24 +101,18 @@ func main() {
 	htmlContent := response.Data.Question.Content
 	// converter := converter.NewConverter("", true, nil) // HTML-to-Markdown converter
 	markdownContent, err := htmltomarkdown.ConvertString(htmlContent)
+	markdownContent = RemoveInvisibleCharacters(markdownContent)
 	if err != nil {
 		panic(err)
 	}
 
 	// Output the problem details
 	question := response.Data.Question
-	fmt.Println("Title:", question.QuestionTitle)
-	fmt.Println("Difficulty:", question.Difficulty)
-	fmt.Println("ID:", question.QuestionFrontendID)
-	fmt.Println("\nDescription:\n", markdownContent)
-	fmt.Println("\nSample Input (Raw):\n", question.ExampleTestcaseList[0])
 
 	found := false
 	var code CodeSnippet
 	for _, code = range question.CodeSnippets {
 		if code.Lang == "Go" {
-			fmt.Println("\nCode Snippet:\n")
-			fmt.Println(code.Code)
 			found = true
 			break
 		}
@@ -125,15 +126,14 @@ func main() {
 		panic(err)
 	}
 
-	solutionFilePath := fmt.Sprintf(question.QuestionFrontendID + "/solution.c")
-	if err = os.WriteFile(solutionFilePath, []byte(code.Code), os.ModePerm); err != nil {
+	solutionFilePath := fmt.Sprintf(question.QuestionFrontendID + "/solution.go")
+	fileContent := fmt.Sprintf("// Source: " + questionLink + "\n" + "// Author: " + author + "\n\n" + "/*" + "\n" + markdownContent + "\n" + "*/" + "\n\n" + code.Code)
+
+	if err = os.WriteFile(solutionFilePath, []byte(fileContent), os.ModePerm); err != nil {
 		panic(err)
 	}
 
-	// Define the terminal application and arguments
-	// Example: Launch `vim` or `bash` as a subprocess
-	cmd := exec.Command("nvim", solutionFilePath) // Replace "bash" with your desired terminal application
-
+	cmd := exec.Command("nvim", solutionFilePath)
 	// Set the standard input, output, and error to match the parent process
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -148,7 +148,23 @@ func main() {
 		return
 	}
 
-	// Resume execution after terminal application exits
+	var ans string
 	fmt.Println("Link the solution to the Repo Readme?[y/N]")
+	fmt.Scanln(&ans)
+	if ans == "y" || ans == "Y" {
+		file, err := os.OpenFile("Readme.md", os.O_APPEND|os.O_WRONLY, 0)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer file.Close()
+
+		file.WriteString(fmt.Sprintf(`|%s|[%s](%s) | [%s](./%s)|%s|`, question.QuestionFrontendID, question.QuestionTitle, questionLink, code.Lang, solutionFilePath, question.Difficulty))
+		fmt.Println("Done.")
+	} else {
+		fmt.Println("Bye.")
+		return
+
+	}
 
 }
