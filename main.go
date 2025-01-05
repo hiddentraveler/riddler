@@ -41,10 +41,24 @@ func RemoveInvisibleCharacters(input string) string {
 	return input
 }
 
+func fileExists(filePath string) bool {
+	info, err := os.Stat(filePath)
+	if err != nil {
+		// If the error is because the file does not exist, return false
+		if os.IsNotExist(err) {
+			return false
+		}
+		// for other error panic
+		panic(err)
+	}
+	// Check if the path is a file (not a directory)
+	return !info.IsDir()
+}
+
 func main() {
 	author := "Neo Orez"
 	if len(os.Args) < 2 {
-		fmt.Println("Please provide input.")
+		fmt.Println("Please provide question link as argument.")
 		return
 	}
 
@@ -100,6 +114,8 @@ func main() {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Referer", "https://leetcode.com")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
 	// Send the HTTP request
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -172,6 +188,23 @@ func main() {
 	fmt.Println("Link the solution to the Repo Readme?[y/N]")
 	fmt.Scanln(&ans)
 	if ans == "y" || ans == "Y" {
+		if !fileExists("Readme.md") {
+			readmeInitContent := `
+				LeetCode
+				========
+				
+				### LeetCode Algorithm
+				
+				
+				| # | Title | Solution | Difficulty |
+				|---| ----- | -------- | ---------- |
+			`
+			err := os.WriteFile("Readme.md", []byte(readmeInitContent), os.ModePerm)
+			if err != nil {
+				fmt.Println("here")
+				panic(err)
+			}
+		}
 		file, err := os.OpenFile("Readme.md", os.O_APPEND|os.O_WRONLY, 0)
 
 		if err != nil {
