@@ -54,6 +54,25 @@ func main() {
 		questionLink = arg
 	}
 
+	var selectedLangOpt string
+	var selectedLang string
+	fmt.Println("Which language do you want to use?[Go:1][C++:2]")
+	fmt.Scanln(&selectedLangOpt)
+
+	var fileExtension string
+	var langDir string
+	switch selectedLangOpt {
+	case "1":
+		fileExtension = "go"
+		langDir = "golang"
+		selectedLang = "Go"
+	case "2":
+		fileExtension = "cpp"
+		langDir = "cpp"
+		selectedLang = "C++"
+
+	}
+
 	problemSlug := strings.Split(questionLink, "/")[4]
 
 	url := "https://leetcode.com/graphql"
@@ -112,7 +131,7 @@ func main() {
 	found := false
 	var code CodeSnippet
 	for _, code = range question.CodeSnippets {
-		if code.Lang == "Go" {
+		if code.Lang == selectedLang {
 			found = true
 			break
 		}
@@ -122,12 +141,13 @@ func main() {
 		fmt.Println("code snippet not found for this problem.")
 	}
 
-	if err = os.MkdirAll(question.QuestionFrontendID, os.ModePerm); err != nil {
+	solutionFolder := fmt.Sprintf(langDir + "/" + question.QuestionFrontendID)
+	if err = os.MkdirAll(solutionFolder, os.ModePerm); err != nil {
 		panic(err)
 	}
 
-	solutionFilePath := fmt.Sprintf(question.QuestionFrontendID + "/solution.go")
-	fileContent := fmt.Sprintf("// Source: " + questionLink + "\n" + "// Author: " + author + "\n\n" + "/*" + "\n" + markdownContent + "\n" + "*/" + "\n\n" + code.Code)
+	solutionFilePath := fmt.Sprintf(solutionFolder + "/solution." + fileExtension)
+	fileContent := fmt.Sprintf("// Source: " + questionLink + "\n" + "// Author: " + author + "\n" + "// Difficulty: " + question.Difficulty + "\n\n" + "/*" + "\n" + markdownContent + "\n" + "*/" + "\n\n" + code.Code)
 
 	if err = os.WriteFile(solutionFilePath, []byte(fileContent), os.ModePerm); err != nil {
 		panic(err)
