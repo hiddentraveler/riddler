@@ -14,28 +14,6 @@ import (
 	"github.com/JohannesKaufmann/html-to-markdown/v2"
 )
 
-type GraphQLRequest struct {
-	Query string `json:"query"`
-}
-
-type CodeSnippet struct {
-	Code string `json:"code"` // Language (e.g., "golang", "c")
-	Lang string `json:"lang"` // Starter code
-}
-
-type GraphQLResponse struct {
-	Data struct {
-		Question struct {
-			QuestionFrontendID  string        `json:"questionFrontendId"`
-			QuestionTitle       string        `json:"questionTitle"`
-			Content             string        `json:"content"` // HTML format
-			Difficulty          string        `json:"difficulty"`
-			ExampleTestcaseList []string      `json:"exampleTestcaseList"` // Raw sample input
-			CodeSnippets        []CodeSnippet `json:"codeSnippets"`
-		} `json:"question"`
-	} `json:"data"`
-}
-
 func RemoveInvisibleCharacters(input string) string {
 	input = strings.ReplaceAll(input, "\u200B", "") // Zero-width space
 	return input
@@ -189,16 +167,7 @@ func main() {
 	fmt.Scanln(&ans)
 	if ans == "y" || ans == "Y" {
 		if !fileExists("Readme.md") {
-			readmeInitContent := `
-				LeetCode
-				========
-				
-				### LeetCode Algorithm
-				
-				
-				| # | Title | Solution | Difficulty |
-				|---| ----- | -------- | ---------- |
-			`
+
 			err := os.WriteFile("Readme.md", []byte(readmeInitContent), os.ModePerm)
 			if err != nil {
 				fmt.Println("here")
@@ -212,7 +181,7 @@ func main() {
 		}
 		defer file.Close()
 
-		file.WriteString(fmt.Sprintf(`|%s|[%s](%s) | [%s](./%s)|%s|`, question.QuestionFrontendID, question.QuestionTitle, questionLink, code.Lang, solutionFilePath, question.Difficulty))
+		file.WriteString(fmt.Sprintf(`|%s|[%s](%s) | [%s](./%s)|%s|`, question.QuestionFrontendID, question.QuestionTitle, questionLink, code.Lang, solutionFilePath, question.Difficulty) + "\n")
 		fmt.Println("Done.")
 	} else {
 		fmt.Println("Bye.")
